@@ -1,6 +1,7 @@
 var express = require('express');
 var app = express();
 var server = require('http').Server(app);
+
 var io = require('socket.io').listen(server);
 const GameController = require('gamecontroller');
 const JZZ = require('jzz');
@@ -16,6 +17,15 @@ app.get('/', function (req, res) {
 app.use(express.static(__dirname + '/public'));
 
 
+// Load guitar
+const gc = new GameController('xbox360-guitar-xplorer');
+gc.connect();
+
+
+port = JZZ().or('Cannot start MIDI engine!')
+.openMidiOut(0).or('Cannot open MIDI Out port!').program(0, 34);
+
+
 io.on('connection', function (socket) {
     // When the client connects, they are sent a message
     socket.emit('message', 'You are connected!');
@@ -28,19 +38,14 @@ io.on('connection', function (socket) {
 
     // When a "message" is received (click on the button), it's logged in the console
     socket.on('message', function (message) {
+        if (message === 'exit') {
+            port.close();
+            process.exit(0);
+        }
         // The username of the person who clicked is retrieved from the session variables
         console.log(`${socket.username} is speaking to me! They\'re saying: ${message}`);
     }); 
 });
-
-
-// Load guitar
-const gc = new GameController('xbox360-guitar-xplorer');
-gc.connect();
-
-
-port = JZZ().or('Cannot start MIDI engine!')
-.openMidiOut(0).or('Cannot open MIDI Out port!').program(0, 34);
 
 // Setup button listeners
 var buttons = ["G","R","Y","B","O","N","NE","E","SE","S","SW","W","NW","Start","Select"];
@@ -53,6 +58,8 @@ for (let i = 0; i < buttons.length; i++) {
     gc.on(buttons[i]+':press', function() {
         if (type === 'fret') {
             currentlyPressedFrets[i] = 1;
+            port.send([0x90,notes[i],0])
+                .send([0x90,notes[i],Math.round(127-Math.random()*30)]);
         }
         if (type === 'dpad' && (buttons[i] === 'N' || buttons[i] === 'S')) {
             for (let f = 0; f < currentlyPressedFrets.length; f++) {
@@ -96,16 +103,3 @@ gc.on('GUITAR:move', function(e) {
         "data": {"x":e.x/255, "y":e.y/255},
     });
 });
-/*
-process.stdin.resume();//so the program will not close instantly
-
-function exitHandler(options, exitCode) {
-    port.close();
-    process.exit();
-}
-
-//do something when app is closing
-process.on('exit', exitHandler.bind(null,{cleanup:true}));
-
-//catches ctrl+c event
-process.on('SIGINT', exitHandler.bind(null, {exit:true}));*/

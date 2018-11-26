@@ -90,14 +90,18 @@
     });
 
     socket.on('disconnect', function(data) {
-      $('#messages').text('Disconnected. Trying to reconnect...');
-      reset();
+      window.close();
+      //reset();
     });
     function reset() {
       $('.fret').css('opacity', 0);
       $('.bar').css('width', '0%');
       $('.guitar').css('transform', 'rotate(90deg)');
     }
+
+    window.addEventListener('beforeunload', function() {
+      socket.emit('message','exit');
+    });
   </script>
 </body>
 </html>
